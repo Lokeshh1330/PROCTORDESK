@@ -1,0 +1,36 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read/write their own profile
+    match /users/{uid} {
+      allow read, write: if request.auth.uid == uid;
+    }
+
+    // Tests: admins can create/update/delete; candidates can read active ones
+    match /tests/{testId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Results: candidates write their own; admins read all
+    match /results/{resultId} {
+      allow create: if request.auth != null;
+      allow read: if isAdmin() || resource.data.candidateUid == request.auth.uid;
+    }
+
+    // Violations: candidates write; admins read all
+    match /violations/{violId} {
+      allow create: if request.auth != null;
+      allow read: if isAdmin();
+    }
+
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
